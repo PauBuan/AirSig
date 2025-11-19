@@ -15,7 +15,7 @@ class HandDetector:
     """
     
     def __init__(self, mode=False, max_hands=2, model_complexity=1, 
-                 detection_con=0.5, tracking_con=0.5):
+                 detection_con=0.7, tracking_con=0.7):
         """
         Initialize HandDetector
         
@@ -23,8 +23,8 @@ class HandDetector:
             mode: Static image mode (False for video)
             max_hands: Maximum number of hands to detect (1-2)
             model_complexity: Model complexity (0 or 1)
-            detection_con: Minimum detection confidence
-            tracking_con: Minimum tracking confidence
+            detection_con: Minimum detection confidence (increased to 0.7 for better accuracy)
+            tracking_con: Minimum tracking confidence (increased to 0.7 for smoother tracking)
         """
         self.mode = mode
         self.max_hands = max_hands

@@ -13,10 +13,11 @@ class OneEuroFilter:
     """
     1€ Filter for temporal smoothing of fingertip trajectory
     Reduces jitter while maintaining low latency (<100ms)
+    Enhanced parameters for smoother drawing
     """
-    def __init__(self, min_cutoff=1.0, beta=0.007, d_cutoff=1.0):
-        self.min_cutoff = min_cutoff
-        self.beta = beta
+    def __init__(self, min_cutoff=0.5, beta=0.005, d_cutoff=1.0):
+        self.min_cutoff = min_cutoff  # Reduced from 1.0 to 0.5 for more smoothing
+        self.beta = beta  # Reduced from 0.007 to 0.005 for less jitter
         self.d_cutoff = d_cutoff
         self.x_prev = None
         self.dx_prev = 0.0
@@ -65,19 +66,60 @@ class OneEuroFilter:
 
 
 class PointSmoother:
-    """Smooth (x, y) coordinates using 1€ filters"""
-    def __init__(self):
-        self.filter_x = OneEuroFilter()
-        self.filter_y = OneEuroFilter()
+    """Smooth (x, y) coordinates using 1€ filters with moving average and jitter reduction"""
+    def __init__(self, window_size=3, jitter_threshold=5, stabilization='high'):
+        self.window_size = window_size
+        self.jitter_threshold = jitter_threshold
+        self.stabilization = stabilization
+        
+        # Adjust filter parameters based on stabilization level
+        if stabilization == 'low':
+            self.filter_x = OneEuroFilter(min_cutoff=1.0, beta=0.01)
+            self.filter_y = OneEuroFilter(min_cutoff=1.0, beta=0.01)
+            self.window_size = 2
+        elif stabilization == 'medium':
+            self.filter_x = OneEuroFilter(min_cutoff=0.5, beta=0.005)
+            self.filter_y = OneEuroFilter(min_cutoff=0.5, beta=0.005)
+            self.window_size = 3
+        else:  # high
+            self.filter_x = OneEuroFilter(min_cutoff=0.3, beta=0.003)
+            self.filter_y = OneEuroFilter(min_cutoff=0.3, beta=0.003)
+            self.window_size = 5
+        
+        self.point_history = deque(maxlen=self.window_size)
+        self.last_stable_point = None
     
     def smooth(self, point, t=None):
-        """Smooth a (x, y) point"""
+        """Smooth a (x, y) point with 1€ filter + moving average + jitter reduction"""
         if point is None:
             return None
         x, y = point
+        
+        # Jitter reduction: ignore small movements
+        if self.last_stable_point:
+            dx = abs(x - self.last_stable_point[0])
+            dy = abs(y - self.last_stable_point[1])
+            if dx < self.jitter_threshold and dy < self.jitter_threshold:
+                # Movement too small, keep last position (reduces jitter)
+                return self.last_stable_point
+        
+        # Apply 1€ filter first
         x_smooth = self.filter_x(x, t)
         y_smooth = self.filter_y(y, t)
-        return (int(x_smooth), int(y_smooth))
+        
+        # Add to history
+        self.point_history.append((x_smooth, y_smooth))
+        
+        # Apply moving average
+        if len(self.point_history) > 0:
+            avg_x = sum(p[0] for p in self.point_history) / len(self.point_history)
+            avg_y = sum(p[1] for p in self.point_history) / len(self.point_history)
+            result = (int(avg_x), int(avg_y))
+        else:
+            result = (int(x_smooth), int(y_smooth))
+        
+        self.last_stable_point = result
+        return result
     
     def reset(self):
         """Reset filter state"""
@@ -93,7 +135,7 @@ class DrawingEngine:
     def __init__(self, width=640, height=480):
         self.width = width
         self.height = height
-        self.canvas = np.zeros((height, width, 3), dtype='uint8')
+        self.canvas = np.full((height, width, 3), 255, dtype='uint8')  # White background
         self.undo_stack = deque(maxlen=20)  # Store last 20 states
         self.redo_stack = deque(maxlen=20)
         self.save_state()
@@ -123,28 +165,49 @@ class DrawingEngine:
     def clear(self):
         """Clear the canvas"""
         self.save_state()
-        self.canvas = np.zeros((self.height, self.width, 3), dtype='uint8')
+        self.canvas = np.full((self.height, self.width, 3), 255, dtype='uint8')  # White background
     
     def draw_line(self, pt1, pt2, color, thickness):
-        """Draw a line on canvas"""
+        """Draw a smooth anti-aliased line on canvas with interpolation for large gaps"""
         if pt1 and pt2:
-            cv2.line(self.canvas, pt1, pt2, color, thickness)
+            # Calculate distance between points
+            dist = np.sqrt((pt2[0] - pt1[0])**2 + (pt2[1] - pt1[1])**2)
+            
+            # If points are far apart, interpolate to avoid gaps
+            if dist > thickness * 2:
+                # Calculate number of intermediate points
+                num_points = int(dist / (thickness / 2))
+                for i in range(num_points):
+                    t = i / num_points
+                    x = int(pt1[0] + t * (pt2[0] - pt1[0]))
+                    y = int(pt1[1] + t * (pt2[1] - pt1[1]))
+                    cv2.circle(self.canvas, (x, y), thickness // 2, color, -1, cv2.LINE_AA)
+            
+            # Draw the main line with anti-aliasing
+            cv2.line(self.canvas, pt1, pt2, color, thickness, cv2.LINE_AA)
     
     def erase(self, center, radius):
-        """Erase at given position"""
+        """Erase at given position with smooth edges"""
         if center:
-            cv2.circle(self.canvas, center, radius, (0, 0, 0), -1)
+            # Use anti-aliased circle for smoother erasing (erase to white)
+            cv2.circle(self.canvas, center, radius, (255, 255, 255), -1, cv2.LINE_AA)
     
     def overlay_on_frame(self, frame):
-        """Overlay canvas on video frame using masking"""
+        """Overlay canvas onto video frame"""
+        # Ensure canvas and frame have the same dimensions
+        if frame.shape != self.canvas.shape:
+            canvas_resized = cv2.resize(self.canvas, (frame.shape[1], frame.shape[0]))
+        else:
+            canvas_resized = self.canvas
+        
         # Convert canvas to grayscale for masking
-        gray = cv2.cvtColor(self.canvas, cv2.COLOR_BGR2GRAY)
+        gray = cv2.cvtColor(canvas_resized, cv2.COLOR_BGR2GRAY)
         _, img_inv = cv2.threshold(gray, 50, 255, cv2.THRESH_BINARY_INV)
         img_inv = cv2.cvtColor(img_inv, cv2.COLOR_GRAY2BGR)
         
         # Combine frame and canvas
         frame = cv2.bitwise_and(frame, img_inv)
-        frame = cv2.bitwise_or(frame, self.canvas)
+        frame = cv2.bitwise_or(frame, canvas_resized)
         return frame
     
     def get_canvas(self):
@@ -191,9 +254,13 @@ class GestureRecognizer:
         if sum(fingers) == 0:
             gesture = "fist"
         
-        # Palm open - all fingers extended
+        # Palm open - all fingers extended (including thumb)
         elif sum(fingers) == 5:
             gesture = "palm_open"
+        
+        # Erase - thumb closed + 4 fingers extended (index, middle, ring, pinky)
+        elif not thumb and index and middle and ring and pinky:
+            gesture = "erase"
         
         # Pinch - thumb and index close together
         elif thumb_index_dist < 40:
@@ -206,10 +273,6 @@ class GestureRecognizer:
         # Index + Middle - navigation/move
         elif index and middle and not ring and not pinky:
             gesture = "navigate"
-        
-        # Four fingers (no thumb) - erasing
-        elif index and middle and ring and pinky:
-            gesture = "erase"
         
         # Add to history for smoothing
         self.gesture_history.append(gesture)
@@ -225,22 +288,28 @@ class GestureRecognizer:
         """
         Determine which fingers are extended
         Returns: [thumb, index, middle, ring, pinky]
+        Works consistently for both left and right hands
         """
         fingers = []
         
-        # Thumb - check x coordinate (different for left/right hand)
-        if landmarks[4][1] < landmarks[3][1]:  # Simplified thumb check
-            fingers.append(1)
+        # Thumb - check if tip is farther from wrist than IP joint
+        # Using distance from wrist (landmark 0) for consistent detection
+        thumb_tip_dist = self._distance(landmarks[0], landmarks[4])
+        thumb_ip_dist = self._distance(landmarks[0], landmarks[3])
+        
+        if thumb_tip_dist > thumb_ip_dist:
+            fingers.append(1)  # Thumb extended
         else:
-            fingers.append(0)
+            fingers.append(0)  # Thumb closed
         
         # Other fingers - check y coordinate (tip vs pip joint)
+        # Tip should be higher (smaller y) than PIP joint when extended
         finger_tips = [8, 12, 16, 20]
         for tip_id in finger_tips:
             if landmarks[tip_id][2] < landmarks[tip_id - 2][2]:
-                fingers.append(1)
+                fingers.append(1)  # Finger extended
             else:
-                fingers.append(0)
+                fingers.append(0)  # Finger closed
         
         return fingers
     
@@ -274,9 +343,10 @@ class ColorPalette:
 
 
 def calculate_fps(prev_time):
-    """Calculate FPS"""
+    """Calculate FPS with division by zero protection"""
     curr_time = time.time()
-    fps = 1 / (curr_time - prev_time) if curr_time > prev_time else 0
+    time_diff = curr_time - prev_time
+    fps = 1 / time_diff if time_diff > 0.001 else 0  # Prevent division by zero
     return fps, curr_time
 
 
