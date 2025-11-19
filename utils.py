@@ -193,22 +193,36 @@ class DrawingEngine:
             cv2.circle(self.canvas, center, radius, (255, 255, 255), -1, cv2.LINE_AA)
     
     def overlay_on_frame(self, frame):
-        """Overlay canvas onto video frame"""
+        """Overlay drawing onto video frame (shows camera with drawing on top)"""
         # Ensure canvas and frame have the same dimensions
         if frame.shape != self.canvas.shape:
             canvas_resized = cv2.resize(self.canvas, (frame.shape[1], frame.shape[0]))
         else:
             canvas_resized = self.canvas
         
-        # Convert canvas to grayscale for masking
+        # Create a mask where the canvas is NOT white (i.e., where there's drawing)
+        # White is (255, 255, 255), so we want to find pixels that are not white
         gray = cv2.cvtColor(canvas_resized, cv2.COLOR_BGR2GRAY)
-        _, img_inv = cv2.threshold(gray, 50, 255, cv2.THRESH_BINARY_INV)
-        img_inv = cv2.cvtColor(img_inv, cv2.COLOR_GRAY2BGR)
+        # Invert: 0 where white (no drawing), 255 where there's drawing
+        _, mask = cv2.threshold(gray, 250, 255, cv2.THRESH_BINARY_INV)
+        mask_inv = cv2.bitwise_not(mask)
         
-        # Combine frame and canvas
-        frame = cv2.bitwise_and(frame, img_inv)
-        frame = cv2.bitwise_or(frame, canvas_resized)
-        return frame
+        # Convert masks to 3-channel
+        mask_3ch = cv2.cvtColor(mask, cv2.COLOR_GRAY2BGR)
+        mask_inv_3ch = cv2.cvtColor(mask_inv, cv2.COLOR_GRAY2BGR)
+        
+        # Keep the camera frame where there's no drawing
+        frame_bg = cv2.bitwise_and(frame, mask_inv_3ch)
+        # Keep the drawing where there is drawing
+        drawing_fg = cv2.bitwise_and(canvas_resized, mask_3ch)
+        # Combine them
+        result = cv2.add(frame_bg, drawing_fg)
+        
+        return result
+    
+    def get_canvas_for_export(self):
+        """Get canvas with white background for saving/exporting"""
+        return self.canvas.copy()
     
     def get_canvas(self):
         """Get current canvas"""

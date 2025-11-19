@@ -986,7 +986,7 @@ class AirSigGUI:
         )
         
         if filename:
-            canvas = self.drawing_engine.get_canvas()
+            canvas = self.drawing_engine.get_canvas_for_export()
             cv2.imwrite(filename, canvas)
             messagebox.showinfo("Export", f"Image saved to:\n{filename}")
             self.project_modified = False
@@ -1022,7 +1022,7 @@ class AirSigGUI:
         if filename:
             import pickle
             project_data = {
-                'canvas': self.drawing_engine.get_canvas(),
+                'canvas': self.drawing_engine.get_canvas_for_export(),
                 'brush_color': self.brush_color,
                 'brush_size': self.brush_size,
                 'brush_opacity': self.brush_opacity,
@@ -1109,7 +1109,7 @@ class AirSigGUI:
         
         import pickle
         project_data = {
-            'canvas': self.drawing_engine.get_canvas(),
+            'canvas': self.drawing_engine.get_canvas_for_export(),
             'brush_color': self.brush_color,
             'brush_size': self.brush_size,
             'brush_opacity': self.brush_opacity,
