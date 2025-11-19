@@ -148,7 +148,10 @@ class DrawingEngine:
     def undo(self):
         """Undo last drawing action"""
         if len(self.undo_stack) > 1:  # Keep at least one state
-            self.redo_stack.append(self.undo_stack.pop())
+            # Move current state to redo stack
+            current_state = self.undo_stack.pop()
+            self.redo_stack.append(current_state)
+            # Restore previous state
             self.canvas = self.undo_stack[-1].copy()
             return True
         return False
@@ -156,8 +159,11 @@ class DrawingEngine:
     def redo(self):
         """Redo last undone action"""
         if self.redo_stack:
+            # Get state from redo stack
             state = self.redo_stack.pop()
-            self.undo_stack.append(state)
+            # Add it back to undo stack
+            self.undo_stack.append(state.copy())
+            # Update canvas
             self.canvas = state.copy()
             return True
         return False
@@ -257,7 +263,7 @@ class GestureRecognizer:
         fingers = self._get_finger_states(landmarks)
         thumb, index, middle, ring, pinky = fingers
         
-        # Calculate distances for pinch detection
+        # Calculate distances for pinch detection (thumb tip to index tip)
         thumb_index_dist = self._distance(landmarks[4], landmarks[8])
         
         # Recognize gestures
@@ -276,8 +282,9 @@ class GestureRecognizer:
         elif not thumb and index and middle and ring and pinky:
             gesture = "erase"
         
-        # Pinch - thumb and index close together
-        elif thumb_index_dist < 40:
+        # Pinch - thumb tip and index tip very close together (more strict threshold)
+        # Only detect when thumb and index are actually touching/very close
+        elif thumb_index_dist < 25:  # Reduced from 40 to 25 for more precision
             gesture = "pinch"
         
         # Index finger only - drawing

@@ -111,11 +111,6 @@ class AirSigGUI:
         self.recording_start_time = None
         self.recording_timestamps = []  # New: Store timestamp markers
         
-        # Shape tool state
-        self.shape_mode = None  # None, 'circle', 'rectangle', 'arrow', 'line'
-        self.shape_start_point = None
-        self.temp_shape = None
-        
         # Setup GUI
         self.setup_gui()
         
@@ -268,73 +263,60 @@ class AirSigGUI:
         self.opacity_label = ttk.Label(control_frame, text="100%")
         self.opacity_label.grid(row=19, column=0, columnspan=2)
         
-        # Shape tools
-        ttk.Label(control_frame, text="Shape Tools:", font=("Arial", 10, "bold")).grid(
+        # Export controls
+        ttk.Label(control_frame, text="Export:", font=("Arial", 10, "bold")).grid(
             row=20, column=0, columnspan=2, sticky=tk.W, pady=(20, 5)
         )
         
-        shape_frame = ttk.Frame(control_frame)
-        shape_frame.grid(row=21, column=0, columnspan=2, pady=5)
-        
-        ttk.Button(shape_frame, text="○", command=lambda: self.set_shape_mode('circle'), width=4).pack(side=tk.LEFT, padx=2)
-        ttk.Button(shape_frame, text="□", command=lambda: self.set_shape_mode('rectangle'), width=4).pack(side=tk.LEFT, padx=2)
-        ttk.Button(shape_frame, text="→", command=lambda: self.set_shape_mode('arrow'), width=4).pack(side=tk.LEFT, padx=2)
-        ttk.Button(shape_frame, text="─", command=lambda: self.set_shape_mode('line'), width=4).pack(side=tk.LEFT, padx=2)
-        
-        # Export controls
-        ttk.Label(control_frame, text="Export:", font=("Arial", 10, "bold")).grid(
-            row=22, column=0, columnspan=2, sticky=tk.W, pady=(20, 5)
-        )
-        
         ttk.Button(control_frame, text="Save Project", 
-                   command=self.save_project, width=20).grid(row=23, column=0, columnspan=2, pady=5)
+                   command=self.save_project, width=20).grid(row=21, column=0, columnspan=2, pady=5)
         
         ttk.Button(control_frame, text="Save Image", 
-                   command=self.export_image, width=20).grid(row=24, column=0, columnspan=2, pady=5)
+                   command=self.export_image, width=20).grid(row=22, column=0, columnspan=2, pady=5)
         
         self.record_btn = ttk.Button(control_frame, text="Start Recording", 
                                       command=self.toggle_recording, width=20)
-        self.record_btn.grid(row=25, column=0, columnspan=2, pady=5)
+        self.record_btn.grid(row=23, column=0, columnspan=2, pady=5)
         
         self.pause_record_btn = ttk.Button(control_frame, text="Pause Recording", 
                                            command=self.pause_recording, width=20, state=tk.DISABLED)
-        self.pause_record_btn.grid(row=26, column=0, columnspan=2, pady=5)
+        self.pause_record_btn.grid(row=24, column=0, columnspan=2, pady=5)
         
         ttk.Button(control_frame, text="Load Project", 
-                   command=self.load_project, width=20).grid(row=27, column=0, columnspan=2, pady=5)
+                   command=self.load_project, width=20).grid(row=25, column=0, columnspan=2, pady=5)
         
         # Stabilization control
         ttk.Label(control_frame, text="Stabilization:", font=("Arial", 10, "bold")).grid(
-            row=28, column=0, columnspan=2, sticky=tk.W, pady=(20, 5)
+            row=26, column=0, columnspan=2, sticky=tk.W, pady=(20, 5)
         )
         
         self.stabilization_var = tk.StringVar(value="high")
         stab_menu = ttk.Combobox(control_frame, textvariable=self.stabilization_var, 
                                  values=['low', 'medium', 'high'], state="readonly", width=18)
-        stab_menu.grid(row=29, column=0, columnspan=2, pady=5)
+        stab_menu.grid(row=27, column=0, columnspan=2, pady=5)
         stab_menu.bind("<<ComboboxSelected>>", self.on_stabilization_change)
         
         # Camera selection
         ttk.Label(control_frame, text="Camera:", font=("Arial", 10, "bold")).grid(
-            row=30, column=0, columnspan=2, sticky=tk.W, pady=(20, 5)
+            row=28, column=0, columnspan=2, sticky=tk.W, pady=(20, 5)
         )
         
         self.camera_var = tk.IntVar(value=0)
         ttk.Button(control_frame, text="Switch Camera", 
-                   command=self.switch_camera, width=20).grid(row=31, column=0, columnspan=2, pady=5)
+                   command=self.switch_camera, width=20).grid(row=29, column=0, columnspan=2, pady=5)
         
         self.low_light_var = tk.BooleanVar(value=False)
         ttk.Checkbutton(control_frame, text="Low Light Mode", 
                         variable=self.low_light_var,
-                        command=self.on_low_light_toggle).grid(row=32, column=0, columnspan=2, sticky=tk.W, pady=2)
+                        command=self.on_low_light_toggle).grid(row=30, column=0, columnspan=2, sticky=tk.W, pady=2)
         
         # Theme control
         ttk.Label(control_frame, text="Theme:", font=("Arial", 10, "bold")).grid(
-            row=33, column=0, columnspan=2, sticky=tk.W, pady=(20, 5)
+            row=31, column=0, columnspan=2, sticky=tk.W, pady=(20, 5)
         )
         
         theme_frame = ttk.Frame(control_frame)
-        theme_frame.grid(row=34, column=0, columnspan=2, pady=5)
+        theme_frame.grid(row=32, column=0, columnspan=2, pady=5)
         
         ttk.Button(theme_frame, text="Light", command=lambda: self.set_theme('light'), width=9).pack(side=tk.LEFT, padx=2)
         ttk.Button(theme_frame, text="Dark", command=lambda: self.set_theme('dark'), width=9).pack(side=tk.LEFT, padx=2)
@@ -418,7 +400,7 @@ class AirSigGUI:
         
         gestures = [
             "☝️  Index Finger Only - Draw on canvas",
-            "👆 Index + Middle Fingers - Navigate/Move cursor & Shape tools",
+            "👆 Index + Middle Fingers - Navigate/Move cursor",
             "🖐️  Four Fingers (Thumb Closed) - Erase",
             "✊  Fist (All closed) - Clear entire canvas",
             "🤚  Palm Open (All extended) - Pause drawing",
@@ -434,7 +416,6 @@ class AirSigGUI:
             "🎨 8 Color Palette - Red, Blue, Green, Yellow, Cyan, Magenta, White, Black",
             "🖌️ Adjustable Brush Size (1-20 pixels)",
             "💧 Brush Opacity Control (10-100%)",
-            "📐 Shape Tools - Circle, Rectangle, Arrow, Line",
             "↩️  Undo/Redo Support (last 20 actions)",
             "✨ Enhanced Smoothing - Low/Medium/High stabilization levels",
             "🎯 Advanced Stabilization - Jitter reduction for steady lines"
@@ -486,8 +467,7 @@ class AirSigGUI:
             "💡 Keep hand steady for best detection",
             "💡 Use high stabilization for smoother lines",
             "💡 Enable grid and rulers for precise drawings",
-            "💡 Projects auto-save to prevent data loss",
-            "💡 Use shape tools with navigate gesture (Index+Middle)"
+            "💡 Projects auto-save to prevent data loss"
         ]
         
         for tip in tips:
@@ -747,11 +727,6 @@ class AirSigGUI:
                     # Navigation mode - show cursor
                     cv2.circle(frame, finger_tip, 10, (255, 255, 0), 2)
                     self.prev_draw_point = None
-                    
-                    # Shape tool interaction
-                    if self.shape_mode and idx == 0:  # Only first hand
-                        self.handle_shape_tool(finger_tip)
-                    
                     self.current_gesture = "Navigate"
                 
                 elif gesture == "erase":
@@ -996,15 +971,6 @@ class AirSigGUI:
         self.brush_opacity = float(value)
         self.opacity_label.config(text=f"{int(self.brush_opacity * 100)}%")
     
-    def set_shape_mode(self, shape):
-        """Set the current shape drawing mode"""
-        if self.shape_mode == shape:
-            self.shape_mode = None  # Toggle off
-            messagebox.showinfo("Shape Tool", "Shape mode disabled")
-        else:
-            self.shape_mode = shape
-            messagebox.showinfo("Shape Tool", f"Drawing {shape}. Use Index+Middle fingers to set points.")
-    
     def save_project(self):
         """Save current project with all settings"""
         if not self.drawing_engine:
@@ -1178,39 +1144,6 @@ class AirSigGUI:
                     messagebox.showinfo("Recording", f"Video saved to:\n{filename}")
             else:
                 messagebox.showwarning("Recording", "No frames recorded!")
-    
-    def handle_shape_tool(self, point):
-        """Handle shape tool drawing with navigation gesture"""
-        if not self.shape_start_point:
-            # First point
-            self.shape_start_point = point
-            messagebox.showinfo("Shape Tool", "First point set. Move to second point and use navigate gesture.")
-        else:
-            # Second point - draw the shape
-            if self.shape_mode == 'circle':
-                center = ((self.shape_start_point[0] + point[0]) // 2,
-                         (self.shape_start_point[1] + point[1]) // 2)
-                radius = int(np.sqrt((point[0] - self.shape_start_point[0])**2 + 
-                                    (point[1] - self.shape_start_point[1])**2) // 2)
-                cv2.circle(self.drawing_engine.canvas, center, radius, self.brush_color, self.brush_size)
-            
-            elif self.shape_mode == 'rectangle':
-                cv2.rectangle(self.drawing_engine.canvas, self.shape_start_point, point, 
-                            self.brush_color, self.brush_size)
-            
-            elif self.shape_mode == 'line':
-                cv2.line(self.drawing_engine.canvas, self.shape_start_point, point, 
-                        self.brush_color, self.brush_size, cv2.LINE_AA)
-            
-            elif self.shape_mode == 'arrow':
-                cv2.arrowedLine(self.drawing_engine.canvas, self.shape_start_point, point, 
-                              self.brush_color, self.brush_size, tipLength=0.3)
-            
-            # Reset shape tool
-            self.shape_start_point = None
-            self.shape_mode = None
-            self.project_modified = True
-            messagebox.showinfo("Shape Tool", "Shape completed!")
     
     def process_two_hand_gestures(self, hands_data, frame):
         """Two-hand gestures disabled"""
