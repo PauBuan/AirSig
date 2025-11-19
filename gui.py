@@ -50,7 +50,7 @@ class AirSigGUI:
         self.show_landmarks = True
         
         # Color cycling for pinch gesture
-        self.color_list = ['red', 'blue', 'green', 'yellow', 'cyan', 'magenta', 'white', 'black']
+        self.color_list = ['red', 'blue', 'green', 'yellow', 'cyan', 'magenta', 'black']
         self.current_color_index = 0
         self.last_pinch_state = False  # Track pinch state to detect transitions
         
@@ -413,7 +413,7 @@ class AirSigGUI:
         ttk.Label(frame, text="\nDrawing Features:", font=("Arial", 12, "bold")).pack(anchor=tk.W, pady=(10, 5))
         
         drawing_features = [
-            "🎨 8 Color Palette - Red, Blue, Green, Yellow, Cyan, Magenta, White, Black",
+            "🎨 8 Color Palette - Red, Blue, Green, Yellow, Cyan, Magenta, Black",
             "🖌️ Adjustable Brush Size (1-20 pixels)",
             "💧 Brush Opacity Control (10-100%)",
             "↩️  Undo/Redo Support (last 20 actions)",
